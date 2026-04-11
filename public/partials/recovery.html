@@ -1,0 +1,103 @@
+<div
+  id="recovery-modal"
+  class="recovery-modal hidden"
+  role="dialog"
+  aria-modal="true"
+  aria-label="계정 찾기 및 비밀번호 재설정"
+>
+  <button type="button" class="recovery-backdrop" id="recovery-backdrop" aria-label="닫기"></button>
+  <div class="recovery-dialog card">
+    <div class="move-modal-head">
+      <h3 id="recovery-modal-title">아이디 찾기</h3>
+      <button type="button" class="recovery-close" id="recovery-close" aria-label="닫기">×</button>
+    </div>
+    <div id="recovery-find-id" class="recovery-section">
+      <div class="stack">
+        <label class="field">
+          <span>이름</span>
+          <input type="text" id="find-id-name" autocomplete="name" />
+        </label>
+        <label class="field">
+          <span>이메일</span>
+          <input type="email" id="find-id-email" autocomplete="email" />
+        </label>
+        <button type="button" class="btn secondary wide" id="btn-send-find-id-code">인증번호 발송</button>
+        <div id="find-id-verify-step" class="stack hidden">
+          <p
+            id="find-id-code-ttl-hint"
+            class="field-hint email-code-ttl-hint hidden"
+            role="status"
+          ></p>
+          <label class="field">
+            <span>인증번호</span>
+            <input
+              type="text"
+              id="find-id-code"
+              inputmode="numeric"
+              maxlength="6"
+              placeholder="6자리 숫자"
+              autocomplete="one-time-code"
+            />
+          </label>
+          <button type="button" class="btn btn-auth-submit wide" id="btn-verify-find-id-code">
+            인증하고 아이디 확인
+          </button>
+        </div>
+      </div>
+      <p id="recovery-find-id-result" class="recovery-result message" role="status"></p>
+    </div>
+    <div id="recovery-reset-password" class="recovery-section hidden">
+      <p class="recovery-desc">새 비밀번호를 입력해 주세요.</p>
+      <form id="form-recovery-password" class="stack" novalidate>
+        <label class="field">
+          <span>아이디</span>
+          <input
+            type="text"
+            name="loginId"
+            required
+            minlength="4"
+            maxlength="20"
+            pattern="[a-zA-Z0-9_]+"
+            autocomplete="username"
+          />
+        </label>
+        <label class="field">
+          <span>새 비밀번호</span>
+          <input type="password" name="newPassword" required minlength="8" autocomplete="new-password" />
+          <p class="field-hint">8자 이상, 영문 대문자·소문자·특수문자를 각각 포함해야 합니다.</p>
+          <p id="recovery-password-policy-hint" class="field-hint password-match-hint hidden" role="status"></p>
+        </label>
+        <label class="field">
+          <span>새 비밀번호 확인</span>
+          <input
+            type="password"
+            name="confirmPassword"
+            required
+            minlength="8"
+            autocomplete="new-password"
+          />
+          <p id="recovery-password-match-hint" class="field-hint password-match-hint hidden" role="status"></p>
+        </label>
+        <button type="submit" class="btn btn-auth-submit wide">비밀번호 변경</button>
+      </form>
+      <p id="recovery-password-result" class="recovery-result message" role="status"></p>
+    </div>
+  </div>
+</div>
+
+<div
+  id="recovery-result-modal"
+  class="recovery-modal hidden"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="recovery-result-title"
+>
+  <div class="recovery-backdrop recovery-result-modal__dim" aria-hidden="true"></div>
+  <div class="recovery-dialog card recovery-result-modal__dialog">
+    <h3 id="recovery-result-title" class="recovery-heading"></h3>
+    <p id="recovery-result-message" class="move-modal-desc recovery-result-message"></p>
+    <div class="recovery-result-actions">
+      <button type="button" id="btn-recovery-result-confirm" class="btn btn-auth-submit wide">확인</button>
+    </div>
+  </div>
+</div>

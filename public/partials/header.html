@@ -1,0 +1,35 @@
+<header class="top-bar">
+  <div class="top-bar-start">
+    <button type="button" id="btn-hamburger" class="btn ghost icon-btn hidden" aria-label="메뉴 열기">
+      ☰
+    </button>
+    <div
+      class="brand"
+      id="btn-brand-home"
+      role="button"
+      tabindex="0"
+      aria-label="내 서랍으로 이동"
+    >
+      <span class="brand-mark" aria-hidden="true"></span>
+      <div>
+        <h1>My drive Cloud</h1>
+        <p class="tagline">나의 서랍</p>
+      </div>
+    </div>
+  </div>
+  <div id="user-area" class="user-area hidden">
+    <button
+      type="button"
+      id="btn-account-menu"
+      class="btn ghost account-trigger"
+      aria-expanded="false"
+    >
+      <span id="user-email" class="user-email"></span>
+    </button>
+    <div id="account-menu" class="account-menu hidden">
+      <button type="button" id="btn-account-loginid" class="account-item" disabled></button>
+      <button type="button" id="btn-account-mypage" class="account-item">마이페이지</button>
+      <button type="button" id="btn-logout" class="account-item">로그아웃</button>
+    </div>
+  </div>
+</header>

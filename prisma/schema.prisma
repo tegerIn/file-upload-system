@@ -1,0 +1,73 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String              @id @default(uuid())
+  loginId       String              @unique
+  email         String              @unique
+  password      String
+  name          String?
+  items         DriveItem[]
+  refreshTokens UserRefreshToken[]
+  createdAt     DateTime            @default(now())
+
+  @@unique([email, loginId])
+}
+
+/** 로그인 세션 연장용 리프레시 토큰(평문은 클라이언트만 보관, DB에는 해시만 저장) */
+model UserRefreshToken {
+  id        String   @id @default(uuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model EmailVerification {
+  id        String   @id @default(uuid())
+  email     String
+  code      String
+  purpose   String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([email, purpose])
+}
+
+model DriveItem {
+  id         String        @id @default(uuid())
+  name       String
+  type       DriveItemType
+  parentId   String?
+  parent     DriveItem?    @relation("ItemChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  children   DriveItem[]   @relation("ItemChildren")
+  userId     String
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  storageKey String?
+  mimeType   String?
+  size       Int?
+  deletedAt  DateTime?
+  purgeAt    DateTime?
+  /** 문서/이미지 섹션 루트 식별 (이름 변경 후에도 동일) */
+  sectionKey String?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  @@unique([userId, sectionKey])
+  @@index([userId, parentId])
+  @@index([userId, deletedAt, purgeAt])
+}
+
+enum DriveItemType {
+  FILE
+  FOLDER
+}
