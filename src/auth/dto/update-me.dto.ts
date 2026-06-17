@@ -1,4 +1,10 @@
-import { IsEmail, IsOptional, IsString, Matches, MinLength } from 'class-validator';
+import {
+  IsEmail,
+  IsOptional,
+  IsString,
+  Matches,
+  MinLength,
+} from 'class-validator';
 import {
   PASSWORD_POLICY_MESSAGE,
   PASSWORD_POLICY_REGEX,

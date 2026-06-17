@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import { IsString, Matches, MaxLength, MinLength } from 'class-validator';
 
 export class LoginDto {
@@ -7,6 +8,9 @@ export class LoginDto {
   @Matches(/^[a-zA-Z0-9_]+$/, {
     message: '아이디 형식이 올바르지 않습니다.',
   })
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim().toLowerCase() : value,
+  )
   loginId: string;
 
   @IsString()

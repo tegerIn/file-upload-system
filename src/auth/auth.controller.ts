@@ -5,52 +5,28 @@ import {
   Get,
   Patch,
   Post,
-  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { TokenService } from '../token/token.service';
 import { AuthService } from './auth.service';
-import { RefreshSessionDto } from './dto/refresh-session.dto';
 import { FindIdSendDto } from './dto/find-id-send.dto';
 import { FindIdVerifyDto } from './dto/find-id-verify.dto';
 import { LoginDto } from './dto/login.dto';
-import { RegisterDto } from './dto/register.dto';
-import { RegisterSendCodeDto } from './dto/register-send-code.dto';
-import { RegisterVerifyCodeDto } from './dto/register-verify-code.dto';
+import { RefreshSessionDto } from './dto/refresh-session.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { UpdateMeDto } from './dto/update-me.dto';
 import { UpdateMeEmailSendDto } from './dto/update-me-email-send.dto';
 import { UpdateMeEmailVerifyDto } from './dto/update-me-email-verify.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
-
-type AuthedRequest = {
-  user: { id: string; loginId: string; email: string; name: string | null };
-};
+import type { AuthedRequest } from './types/authed-request.type';
 
 @Controller('api/auth')
 export class AuthController {
-  constructor(private readonly auth: AuthService) {}
-
-  /** 슬래시 없는 경로: Express 5 + 정적 호스팅 환경에서 `/register/...` 미매칭 이슈 회피 */
-  @Post(['register-send-code', 'register/send-code'])
-  registerSendCode(@Body() dto: RegisterSendCodeDto) {
-    return this.auth.registerSendCode(dto);
-  }
-
-  @Post(['register-verify-code', 'register/verify-code'])
-  registerVerifyCode(@Body() dto: RegisterVerifyCodeDto) {
-    return this.auth.registerVerifyCode(dto);
-  }
-
-  @Get('register/check-login-id')
-  checkRegisterLoginId(@Query('loginId') loginId: string) {
-    return this.auth.checkRegisterLoginIdAvailability(loginId ?? '');
-  }
-
-  @Post('register')
-  register(@Body() dto: RegisterDto) {
-    return this.auth.register(dto);
-  }
+  constructor(
+    private readonly auth: AuthService,
+    private readonly token: TokenService,
+  ) {}
 
   @Post('login')
   login(@Body() dto: LoginDto) {
@@ -59,7 +35,7 @@ export class AuthController {
 
   @Post('refresh')
   refresh(@Body() dto: RefreshSessionDto) {
-    return this.auth.refreshSession(dto.refreshToken);
+    return this.token.refreshSession(dto.refreshToken);
   }
 
   @Post('find-id/send-code')

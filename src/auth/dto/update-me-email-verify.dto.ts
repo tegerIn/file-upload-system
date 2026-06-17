@@ -6,6 +6,6 @@ export class UpdateMeEmailVerifyDto {
 
   @IsString()
   @Length(6, 6, { message: '인증번호 6자리를 입력해 주세요.' })
-  @Matches(/^\d{6}$/u, { message: '인증번호는 숫자 6자리입니다.' })
+  @Matches(/^\d{6}$/, { message: '인증번호는 숫자 6자리입니다.' })
   code: string;
 }

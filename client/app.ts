@@ -25,13 +25,17 @@ function invalidateMyPageEmailVerification(): void {
   mypageEmailVerifyToken = null;
   mypageEmailVerifiedFor = null;
   document.getElementById('mypage-email-verify-step')?.classList.add('hidden');
-  const codeEl = document.getElementById('mypage-email-code') as HTMLInputElement | null;
+  const codeEl = document.getElementById(
+    'mypage-email-code',
+  ) as HTMLInputElement | null;
   if (codeEl) {
     codeEl.value = '';
     codeEl.removeAttribute('aria-invalid');
     codeEl.classList.remove('error', 'ok');
   }
-  const emailEl = document.getElementById('mypage-email-input') as HTMLInputElement | null;
+  const emailEl = document.getElementById(
+    'mypage-email-input',
+  ) as HTMLInputElement | null;
   if (emailEl) {
     emailEl.removeAttribute('aria-invalid');
     emailEl.classList.remove('error', 'ok');
@@ -69,7 +73,10 @@ function isValidLoginId(loginId: string): boolean {
   return LOGIN_ID_REGEX.test(loginId.trim());
 }
 
-const emailCodeCountdownTimers = new Map<string, ReturnType<typeof setInterval>>();
+const emailCodeCountdownTimers = new Map<
+  string,
+  ReturnType<typeof setInterval>
+>();
 
 const EMAIL_CODE_RESEND_LABEL = '인증번호 다시 받기';
 
@@ -97,7 +104,9 @@ function setEmailCodeSendButtonForHint(
 ): void {
   const spec = EMAIL_CODE_COUNTDOWN_SEND[hintElementId];
   if (!spec) return;
-  const btn = document.getElementById(spec.buttonId) as HTMLButtonElement | null;
+  const btn = document.getElementById(
+    spec.buttonId,
+  ) as HTMLButtonElement | null;
   if (!btn) return;
   if (state === 'resend') {
     btn.textContent = EMAIL_CODE_RESEND_LABEL;
@@ -287,7 +296,9 @@ function setRegisterEmailVerifyStepVisible(visible: boolean): void {
 }
 
 function setFindIdVerifyStepVisible(visible: boolean): void {
-  document.getElementById('find-id-verify-step')?.classList.toggle('hidden', !visible);
+  document
+    .getElementById('find-id-verify-step')
+    ?.classList.toggle('hidden', !visible);
 }
 
 function invalidateRegisterEmailVerification(): void {
@@ -298,7 +309,9 @@ function invalidateRegisterEmailVerification(): void {
     'register-email-verify-token',
   ) as HTMLInputElement | null;
   if (tokenEl) tokenEl.value = '';
-  const codeEl = document.getElementById('register-email-code') as HTMLInputElement | null;
+  const codeEl = document.getElementById(
+    'register-email-code',
+  ) as HTMLInputElement | null;
   if (codeEl) codeEl.value = '';
   const verifyHint = document.getElementById('register-email-verify-hint');
   if (verifyHint) {
@@ -427,7 +440,9 @@ function updateRegisterEmailFormatHint(
 }
 
 function wireRegisterEmailFormatHint(form: HTMLFormElement): void {
-  const emailInput = form.querySelector<HTMLInputElement>('input[name="email"]');
+  const emailInput = form.querySelector<HTMLInputElement>(
+    'input[name="email"]',
+  );
   const hint = document.getElementById('register-email-format-hint');
   if (!emailInput || !hint) return;
   const sync = (): void => {
@@ -463,7 +478,9 @@ function wireRegisterPasswordPolicyHint(form: HTMLFormElement): void {
 }
 
 function wireRecoveryPasswordPolicyHint(form: HTMLFormElement): void {
-  const input = form.querySelector<HTMLInputElement>('input[name="newPassword"]');
+  const input = form.querySelector<HTMLInputElement>(
+    'input[name="newPassword"]',
+  );
   const hint = document.getElementById('recovery-password-policy-hint');
   if (!input || !hint) return;
   input.addEventListener('input', () => {
@@ -515,7 +532,7 @@ let moveTargetFolderId: string | null = null;
 const NOTICE_CONFIRM_DEFAULT = '확인';
 let noticeModalAfterClose: (() => void) | null = null;
 /** 동시에 여러 요청이 401을 반환해도 안내 모달은 한 번만 띄움(연장 모달이 열려 있으면 true) */
-let sessionExpiredFlowActive = false;
+let _sessionExpiredFlowActive = false;
 
 const SESSION_RENEW_MESSAGE_401 =
   '로그인 세션이 만료되었습니다. 세션을 연장할까요?';
@@ -523,8 +540,11 @@ const SESSION_RENEW_MESSAGE_SOON =
   '곧 로그인 세션이 만료됩니다. 세션을 연장할까요?';
 /** 액세스 JWT 만료 전에 연장 안내를 띄우기까지 남은 최소 시간(밀리초) */
 const ACCESS_TOKEN_WARN_BEFORE_MS = 25 * 1000;
+/** 연장 모달을 띄운 뒤 사용자가 응답하지 않으면 자동 로그아웃되기까지의 시간(초) */
+const SESSION_RENEW_COUNTDOWN_SECONDS = 10;
 
 let accessTokenExpiryWarnTimer: ReturnType<typeof setTimeout> | null = null;
+let sessionRenewCountdownTimer: ReturnType<typeof setInterval> | null = null;
 let deleteTargetItem: DriveItem | null = null;
 /** true면 휴지통에서의 영구 삭제 확인 모달 */
 let deleteIsPermanentPurge = false;
@@ -625,7 +645,9 @@ function scheduleAccessTokenExpiryWarning(): void {
   clearAccessTokenExpiryWarnTimer();
   const token = localStorage.getItem(TOKEN_KEY);
   const rt = localStorage.getItem(REFRESH_TOKEN_KEY);
-  if (!token || !rt || !currentUser) return;
+  // 로그인 직후엔 currentUser가 아직 세팅되기 전이라 가드에 걸리면 안 됨.
+  // 실제 모달 표시 단계(promptSessionRenewIfExpiringSoon)에서 currentUser를 확인함.
+  if (!token || !rt) return;
   const expMs = readAccessTokenExpMs(token);
   if (expMs == null) return;
   const delay = expMs - Date.now() - ACCESS_TOKEN_WARN_BEFORE_MS;
@@ -652,7 +674,7 @@ async function promptSessionRenewIfExpiringSoon(): Promise<void> {
   const msLeft = expMs - Date.now();
   if (msLeft > ACCESS_TOKEN_WARN_BEFORE_MS + 5000) return;
   if (msLeft < -5 * 60 * 1000) return;
-  sessionExpiredFlowActive = true;
+  _sessionExpiredFlowActive = true;
   openSessionRenewModal(SESSION_RENEW_MESSAGE_SOON);
 }
 
@@ -673,9 +695,15 @@ function resetAuthViewAfterLeavingDrive(): void {
   getEl<HTMLFormElement>('form-login').reset();
   getEl<HTMLFormElement>('form-register').reset();
   clearRegisterFieldHints();
-  document.querySelectorAll('.tab').forEach((x) => x.classList.remove('active'));
-  document.querySelector<HTMLElement>('.tab[data-tab="login"]')?.classList.add('active');
-  document.querySelector<HTMLElement>('.tab[data-tab="register"]')?.classList.remove('active');
+  document
+    .querySelectorAll('.tab')
+    .forEach((x) => x.classList.remove('active'));
+  document
+    .querySelector<HTMLElement>('.tab[data-tab="login"]')
+    ?.classList.add('active');
+  document
+    .querySelector<HTMLElement>('.tab[data-tab="register"]')
+    ?.classList.remove('active');
   getEl('tab-login').classList.remove('hidden');
   getEl('tab-register').classList.add('hidden');
   setAuthMessage('');
@@ -689,18 +717,29 @@ function setDriveError(text: string): void {
 
 function closeAccountMenu(): void {
   getEl('account-menu').classList.add('hidden');
-  getEl<HTMLButtonElement>('btn-account-menu').setAttribute('aria-expanded', 'false');
+  getEl<HTMLButtonElement>('btn-account-menu').setAttribute(
+    'aria-expanded',
+    'false',
+  );
 }
 
 function closeActionMenus(): void {
-  document.querySelectorAll<HTMLElement>('.item-menu').forEach((m) => m.classList.add('hidden'));
+  document
+    .querySelectorAll<HTMLElement>('.item-menu')
+    .forEach((m) => m.classList.add('hidden'));
 }
 
 function closeControlMenus(): void {
   getEl('sort-menu').classList.add('hidden');
   getEl('view-menu').classList.add('hidden');
-  getEl<HTMLButtonElement>('btn-sort-menu').setAttribute('aria-expanded', 'false');
-  getEl<HTMLButtonElement>('btn-view-menu').setAttribute('aria-expanded', 'false');
+  getEl<HTMLButtonElement>('btn-sort-menu').setAttribute(
+    'aria-expanded',
+    'false',
+  );
+  getEl<HTMLButtonElement>('btn-view-menu').setAttribute(
+    'aria-expanded',
+    'false',
+  );
 }
 
 function setSideMenuVisible(visible: boolean): void {
@@ -709,11 +748,11 @@ function setSideMenuVisible(visible: boolean): void {
   document.body.classList.toggle('side-menu-open', visible);
 }
 
-function isDocumentItem(item: DriveItem): boolean {
+function _isDocumentItem(item: DriveItem): boolean {
   return item.type === 'FOLDER' || !item.isImage;
 }
 
-function isImageItem(item: DriveItem): boolean {
+function _isImageItem(item: DriveItem): boolean {
   return item.type === 'FOLDER' || !!item.isImage;
 }
 
@@ -726,12 +765,18 @@ function sortItems(items: DriveItem[]): DriveItem[] {
       return a.type === 'FOLDER' ? -1 : 1;
     }
     if (currentSort === 'name') {
-      return a.name.localeCompare(b.name, 'ko', { numeric: true, sensitivity: 'base' });
+      return a.name.localeCompare(b.name, 'ko', {
+        numeric: true,
+        sensitivity: 'base',
+      });
     }
     const ta = a[dateKey] ? new Date(a[dateKey] as string).getTime() : 0;
     const tb = b[dateKey] ? new Date(b[dateKey] as string).getTime() : 0;
     if (tb !== ta) return tb - ta;
-    return a.name.localeCompare(b.name, 'ko', { numeric: true, sensitivity: 'base' });
+    return a.name.localeCompare(b.name, 'ko', {
+      numeric: true,
+      sensitivity: 'base',
+    });
   });
   return copy;
 }
@@ -801,7 +846,9 @@ async function ensureSectionRoots(): Promise<boolean> {
   return true;
 }
 
-function setSection(section: 'home' | 'docs' | 'images' | 'trash' | 'mypage'): void {
+function setSection(
+  section: 'home' | 'docs' | 'images' | 'trash' | 'mypage',
+): void {
   currentSection = section;
   if (
     section === 'home' ||
@@ -848,12 +895,16 @@ function setSection(section: 'home' | 'docs' | 'images' | 'trash' | 'mypage'): v
       currentParentId = null;
       renderBreadcrumb();
     } else {
-      const rootId = section === 'images' ? sectionRootIds.images : sectionRootIds.docs;
+      const rootId =
+        section === 'images' ? sectionRootIds.images : sectionRootIds.docs;
       if (rootId) {
         currentParentId = rootId;
         pathStack.push({
           id: rootId,
-          name: section === 'images' ? sectionRootLabels.images : sectionRootLabels.docs,
+          name:
+            section === 'images'
+              ? sectionRootLabels.images
+              : sectionRootLabels.docs,
         });
         renderBreadcrumb();
       }
@@ -869,7 +920,8 @@ function setSection(section: 'home' | 'docs' | 'images' | 'trash' | 'mypage'): v
 function syncControlLabels(): void {
   getEl('sort-label').textContent =
     currentSort === 'name' ? '이름순' : '최신순';
-  getEl('view-label').textContent = currentViewMode === 'list' ? '리스트형' : '폴더형';
+  getEl('view-label').textContent =
+    currentViewMode === 'list' ? '리스트형' : '폴더형';
 }
 
 function fillMyPageForm(user: UserDto): void {
@@ -878,8 +930,12 @@ function fillMyPageForm(user: UserDto): void {
   const loginId = form.querySelector<HTMLInputElement>('input[name="loginId"]');
   const name = form.querySelector<HTMLInputElement>('input[name="name"]');
   const email = form.querySelector<HTMLInputElement>('input[name="email"]');
-  const newPw = form.querySelector<HTMLInputElement>('input[name="newPassword"]');
-  const confirmPw = form.querySelector<HTMLInputElement>('input[name="confirmNewPassword"]');
+  const newPw = form.querySelector<HTMLInputElement>(
+    'input[name="newPassword"]',
+  );
+  const confirmPw = form.querySelector<HTMLInputElement>(
+    'input[name="confirmNewPassword"]',
+  );
   if (loginId) loginId.value = user.loginId ?? '';
   if (name) name.value = user.name ?? '';
   if (email) email.value = user.email ?? '';
@@ -909,9 +965,11 @@ function revokePreviews(): void {
 function showAuth(): void {
   getEl('notice-modal').classList.add('hidden');
   getEl('session-renew-modal').classList.add('hidden');
+  stopSessionRenewCountdown();
   noticeModalAfterClose = null;
-  getEl<HTMLButtonElement>('btn-notice-confirm').textContent = NOTICE_CONFIRM_DEFAULT;
-  sessionExpiredFlowActive = false;
+  getEl<HTMLButtonElement>('btn-notice-confirm').textContent =
+    NOTICE_CONFIRM_DEFAULT;
+  _sessionExpiredFlowActive = false;
   clearAuthTokens();
   resetAuthViewAfterLeavingDrive();
   getEl('auth-view').classList.remove('hidden');
@@ -965,7 +1023,7 @@ function renderBreadcrumb(): void {
     }
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'crumb' + (i === pathStack.length - 1 ? ' current' : '');
+    btn.className = `crumb${i === pathStack.length - 1 ? ' current' : ''}`;
     btn.textContent = seg.name;
     if (i < pathStack.length - 1) {
       btn.addEventListener('click', () => {
@@ -1008,7 +1066,10 @@ function mimeToExtLabel(mime: string | null | undefined): string {
   return ext.toLowerCase();
 }
 
-async function loadImagePreview(imgEl: HTMLImageElement, fileId: string): Promise<void> {
+async function loadImagePreview(
+  imgEl: HTMLImageElement,
+  fileId: string,
+): Promise<void> {
   const res = await fetch(`/api/drive/files/${fileId}/raw`, {
     headers: authHeaders(),
   });
@@ -1035,7 +1096,7 @@ function renderItems(items: DriveItem[]): void {
   }
   for (const item of items) {
     const card = document.createElement('article');
-    card.className = 'item-card' + (item.type === 'FOLDER' ? ' folder' : '');
+    card.className = `item-card${item.type === 'FOLDER' ? ' folder' : ''}`;
 
     const thumb = document.createElement('div');
     thumb.className = 'item-thumb-wrap';
@@ -1202,14 +1263,19 @@ function renderItems(items: DriveItem[]): void {
 async function loadItems(): Promise<void> {
   setDriveError('');
   revokePreviews();
-  const q = currentParentId ? `?parentId=${encodeURIComponent(currentParentId)}` : '';
-  const url = currentSection === 'trash' ? '/api/drive/trash' : `/api/drive/items${q}`;
+  const q = currentParentId
+    ? `?parentId=${encodeURIComponent(currentParentId)}`
+    : '';
+  const url =
+    currentSection === 'trash' ? '/api/drive/trash' : `/api/drive/items${q}`;
   const res = await fetch(url, { headers: authHeaders() });
   if (tryHandleUnauthorized(res)) return;
   if (!res.ok) {
     const err = (await res.json().catch(() => ({}))) as ApiErrorBody;
     setDriveError(
-      typeof err.message === 'string' ? err.message : '목록을 불러오지 못했습니다.',
+      typeof err.message === 'string'
+        ? err.message
+        : '목록을 불러오지 못했습니다.',
     );
     return;
   }
@@ -1269,7 +1335,11 @@ function closeWithdrawModal(): void {
   getEl('withdraw-modal').classList.add('hidden');
 }
 
-function showNoticeModal(message: string, title = '알림', afterClose?: () => void): void {
+function showNoticeModal(
+  message: string,
+  title = '알림',
+  afterClose?: () => void,
+): void {
   noticeModalAfterClose = afterClose ?? null;
   getEl('notice-modal-title').textContent = title;
   getEl('notice-modal-message').textContent = message;
@@ -1285,6 +1355,31 @@ function closeNoticeModal(): void {
 
 function closeSessionRenewModal(): void {
   getEl('session-renew-modal').classList.add('hidden');
+  stopSessionRenewCountdown();
+}
+
+function stopSessionRenewCountdown(): void {
+  if (sessionRenewCountdownTimer != null) {
+    clearInterval(sessionRenewCountdownTimer);
+    sessionRenewCountdownTimer = null;
+  }
+}
+
+function startSessionRenewCountdown(): void {
+  stopSessionRenewCountdown();
+  let remaining = SESSION_RENEW_COUNTDOWN_SECONDS;
+  const secondsEl = getEl<HTMLSpanElement>('session-renew-modal-countdown-seconds');
+  secondsEl.textContent = String(remaining);
+  sessionRenewCountdownTimer = setInterval(() => {
+    remaining -= 1;
+    if (remaining <= 0) {
+      stopSessionRenewCountdown();
+      secondsEl.textContent = '0';
+      declineSessionRenewal();
+      return;
+    }
+    secondsEl.textContent = String(remaining);
+  }, 1000);
 }
 
 /** 리프레시 토큰 없이 401 → 로그인 안내 */
@@ -1295,7 +1390,7 @@ function showSessionExpiredNoRefreshNotice(): void {
     '로그인이 만료되었습니다. 다시 로그인해 주세요.',
     '안내',
     () => {
-      sessionExpiredFlowActive = false;
+      _sessionExpiredFlowActive = false;
       showAuth();
     },
   );
@@ -1304,13 +1399,15 @@ function showSessionExpiredNoRefreshNotice(): void {
 function openSessionRenewModal(
   message: string = SESSION_RENEW_MESSAGE_401,
 ): void {
-  getEl<HTMLParagraphElement>('session-renew-modal-message').textContent = message;
+  getEl<HTMLParagraphElement>('session-renew-modal-message').textContent =
+    message;
   getEl('session-renew-modal').classList.remove('hidden');
+  startSessionRenewCountdown();
 }
 
 function declineSessionRenewal(): void {
   closeSessionRenewModal();
-  sessionExpiredFlowActive = false;
+  _sessionExpiredFlowActive = false;
   clearAuthTokens();
   revokePreviews();
   showAuth();
@@ -1327,18 +1424,21 @@ async function acceptSessionRenewal(): Promise<void> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ refreshToken: rt }),
   });
-  const data = (await res.json().catch(() => ({}))) as Partial<AuthSuccessBody> & ApiErrorBody;
+  const data = (await res
+    .json()
+    .catch(() => ({}))) as Partial<AuthSuccessBody> & ApiErrorBody;
   if (
     !res.ok ||
     typeof data.accessToken !== 'string' ||
     typeof data.refreshToken !== 'string'
   ) {
     closeSessionRenewModal();
-    sessionExpiredFlowActive = false;
+    _sessionExpiredFlowActive = false;
     clearAuthTokens();
     revokePreviews();
     showNoticeModal(
-      formatApiMessage(data) || '세션을 연장하지 못했습니다. 다시 로그인해 주세요.',
+      formatApiMessage(data) ||
+        '세션을 연장하지 못했습니다. 다시 로그인해 주세요.',
       '안내',
       () => {
         showAuth();
@@ -1356,7 +1456,7 @@ async function acceptSessionRenewal(): Promise<void> {
     fillMyPageForm(data.user);
   }
   closeSessionRenewModal();
-  sessionExpiredFlowActive = false;
+  _sessionExpiredFlowActive = false;
   if (currentSection === 'mypage') {
     setMyPageMessage('');
   }
@@ -1366,9 +1466,15 @@ async function acceptSessionRenewal(): Promise<void> {
 function tryHandleUnauthorized(res: Response): boolean {
   if (res.status !== 401) return false;
   if (!getEl('session-renew-modal').classList.contains('hidden')) return true;
-  sessionExpiredFlowActive = true;
+  // 아직 로그인하지 않은 상태(예: 앱 부팅 시 남아있던 만료 토큰)에서는 연장 모달 대신 조용히 로그인 화면으로
+  if (!currentUser) {
+    clearAuthTokens();
+    showAuth();
+    return true;
+  }
+  _sessionExpiredFlowActive = true;
   if (!localStorage.getItem(REFRESH_TOKEN_KEY)) {
-    sessionExpiredFlowActive = false;
+    _sessionExpiredFlowActive = false;
     clearAuthTokens();
     showSessionExpiredNoRefreshNotice();
     return true;
@@ -1425,7 +1531,9 @@ async function confirmDeleteItem(): Promise<void> {
     const err = (await res.json().catch(() => ({}))) as ApiErrorBody;
     showNoticeModal(
       formatApiMessage(err) ||
-        (deleteIsPermanentPurge ? '영구 삭제에 실패했습니다.' : '삭제에 실패했습니다.'),
+        (deleteIsPermanentPurge
+          ? '영구 삭제에 실패했습니다.'
+          : '삭제에 실패했습니다.'),
     );
     return;
   }
@@ -1481,7 +1589,7 @@ function closeRenameModal(): void {
   renameFileExtensionSuffix = null;
 }
 
-async function listFolders(parentId: string | null): Promise<DriveItem[]> {
+async function _listFolders(parentId: string | null): Promise<DriveItem[]> {
   const q = parentId ? `?parentId=${encodeURIComponent(parentId)}` : '';
   const res = await fetch(`/api/drive/items${q}`, { headers: authHeaders() });
   if (tryHandleUnauthorized(res)) return [];
@@ -1498,7 +1606,9 @@ async function listFolders(parentId: string | null): Promise<DriveItem[]> {
 }
 
 /** 이동 대상 트리: 문서·이미지 시스템 루트 포함 전체 폴더 */
-async function listMoveDestFolders(parentId: string | null): Promise<DriveItem[]> {
+async function listMoveDestFolders(
+  parentId: string | null,
+): Promise<DriveItem[]> {
   const q = parentId ? `?parentId=${encodeURIComponent(parentId)}` : '';
   const res = await fetch(`/api/drive/items${q}`, { headers: authHeaders() });
   if (tryHandleUnauthorized(res)) return [];
@@ -1519,10 +1629,15 @@ async function renderMoveFolderTree(sourceId: string): Promise<void> {
   const selectedId = moveTargetFolderId;
 
   const clearActive = (): void => {
-    root.querySelectorAll('.move-tree-node').forEach((n) => n.classList.remove('active'));
+    root
+      .querySelectorAll('.move-tree-node')
+      .forEach((n) => n.classList.remove('active'));
   };
 
-  const walk = async (parentId: string | null, depth: number): Promise<void> => {
+  const walk = async (
+    parentId: string | null,
+    depth: number,
+  ): Promise<void> => {
     const children = await listMoveDestFolders(parentId);
     for (const folder of children) {
       if (folder.id === sourceId) continue;
@@ -1571,7 +1686,9 @@ async function renderMoveFolderTree(sourceId: string): Promise<void> {
   await walk(null, 2);
 
   if (!root.querySelector('.move-tree-node.active')) {
-    const firstFolder = root.querySelector<HTMLButtonElement>('.move-tree-node[data-folder-id]');
+    const firstFolder = root.querySelector<HTMLButtonElement>(
+      '.move-tree-node[data-folder-id]',
+    );
     if (firstFolder?.dataset.folderId) {
       firstFolder.classList.add('active');
       moveTargetFolderId = firstFolder.dataset.folderId;
@@ -1609,7 +1726,9 @@ async function completeMoveToSelectedFolder(): Promise<void> {
 
 document.querySelectorAll('.tab').forEach((t) => {
   t.addEventListener('click', () => {
-    document.querySelectorAll('.tab').forEach((x) => x.classList.remove('active'));
+    document
+      .querySelectorAll('.tab')
+      .forEach((x) => x.classList.remove('active'));
     t.classList.add('active');
     const tab = (t as HTMLElement).dataset.tab;
     getEl('tab-login').classList.toggle('hidden', tab !== 'login');
@@ -1703,15 +1822,17 @@ getEl<HTMLButtonElement>('btn-sort-menu').addEventListener('click', (e) => {
   );
 });
 
-document.querySelectorAll<HTMLElement>('#sort-menu .control-menu-item').forEach((btn) => {
-  btn.addEventListener('click', () => {
-    const next = btn.dataset.sort;
-    currentSort = next === 'name' ? 'name' : 'created';
-    syncControlLabels();
-    closeControlMenus();
-    renderCurrentItems();
+document
+  .querySelectorAll<HTMLElement>('#sort-menu .control-menu-item')
+  .forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const next = btn.dataset.sort;
+      currentSort = next === 'name' ? 'name' : 'created';
+      syncControlLabels();
+      closeControlMenus();
+      renderCurrentItems();
+    });
   });
-});
 
 getEl<HTMLButtonElement>('btn-view-menu').addEventListener('click', (e) => {
   e.stopPropagation();
@@ -1724,15 +1845,17 @@ getEl<HTMLButtonElement>('btn-view-menu').addEventListener('click', (e) => {
   );
 });
 
-document.querySelectorAll<HTMLElement>('#view-menu .control-menu-item').forEach((btn) => {
-  btn.addEventListener('click', () => {
-    const next = btn.dataset.view;
-    currentViewMode = next === 'list' ? 'list' : 'grid';
-    syncControlLabels();
-    closeControlMenus();
-    renderCurrentItems();
+document
+  .querySelectorAll<HTMLElement>('#view-menu .control-menu-item')
+  .forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const next = btn.dataset.view;
+      currentViewMode = next === 'list' ? 'list' : 'grid';
+      syncControlLabels();
+      closeControlMenus();
+      renderCurrentItems();
+    });
   });
-});
 
 // 초기 라벨 동기화
 syncControlLabels();
@@ -1757,7 +1880,10 @@ function openRecovery(mode: 'id' | 'password'): void {
   getEl<HTMLHeadingElement>('recovery-modal-title').textContent =
     mode === 'id' ? '아이디 찾기' : '비밀번호 재설정';
   getEl('recovery-find-id').classList.toggle('hidden', mode !== 'id');
-  getEl('recovery-reset-password').classList.toggle('hidden', mode !== 'password');
+  getEl('recovery-reset-password').classList.toggle(
+    'hidden',
+    mode !== 'password',
+  );
   const idResult = getEl<HTMLParagraphElement>('recovery-find-id-result');
   const passResult = getEl<HTMLParagraphElement>('recovery-password-result');
   idResult.textContent = '';
@@ -1805,155 +1931,178 @@ getEl<HTMLButtonElement>('recovery-backdrop').addEventListener('click', () => {
   closeRecovery();
 });
 
-getEl<HTMLButtonElement>('btn-recovery-result-confirm').addEventListener('click', () => {
-  closeRecoveryResultModal();
-});
+getEl<HTMLButtonElement>('btn-recovery-result-confirm').addEventListener(
+  'click',
+  () => {
+    closeRecoveryResultModal();
+  },
+);
 
-getEl<HTMLButtonElement>('btn-send-find-id-code').addEventListener('click', async () => {
-  const resultEl = getEl<HTMLParagraphElement>('recovery-find-id-result');
-  resultEl.classList.remove('error');
-  const name = getEl<HTMLInputElement>('find-id-name').value.trim();
-  const email = getEl<HTMLInputElement>('find-id-email').value.trim();
-  if (!name) {
-    setFindIdVerifyStepVisible(false);
-    clearEmailCodeTtlHint('find-id-code-ttl-hint');
-    resultEl.textContent = '이름을 입력해 주세요.';
-    resultEl.classList.add('error');
-    return;
-  }
-  if (!isValidEmail(email)) {
-    setFindIdVerifyStepVisible(false);
-    clearEmailCodeTtlHint('find-id-code-ttl-hint');
-    resultEl.textContent = '올바른 이메일 형식을 입력해 주세요.';
-    resultEl.classList.add('error');
-    return;
-  }
-  const res = await fetch('/api/auth/find-id/send-code', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, email }),
-  });
-  const data = (await res.json().catch(() => ({}))) as {
-    sent?: boolean;
-    message?: string;
-    expiresInMinutes?: number;
-    expiresInSeconds?: number;
-  } & ApiErrorBody;
-  if (!res.ok) {
-    setFindIdVerifyStepVisible(false);
-    clearEmailCodeTtlHint('find-id-code-ttl-hint');
-    resultEl.textContent = formatApiMessage(data);
-    resultEl.classList.add('error');
-    return;
-  }
-  if (data.sent === false) {
-    setFindIdVerifyStepVisible(false);
-    clearEmailCodeTtlHint('find-id-code-ttl-hint');
-    resultEl.textContent =
-      typeof data.message === 'string' ? data.message : '처리되었습니다.';
-    resultEl.classList.add('error');
-    return;
-  }
-  resultEl.textContent = '';
-  resultEl.classList.remove('error');
-  setFindIdVerifyStepVisible(true);
-  startEmailCodeCountdown('find-id-code-ttl-hint', {
-    expiresInMinutes: data.expiresInMinutes,
-    expiresInSeconds: data.expiresInSeconds,
-  });
-});
+getEl<HTMLButtonElement>('btn-send-find-id-code').addEventListener(
+  'click',
+  async () => {
+    const resultEl = getEl<HTMLParagraphElement>('recovery-find-id-result');
+    resultEl.classList.remove('error');
+    const name = getEl<HTMLInputElement>('find-id-name').value.trim();
+    const email = getEl<HTMLInputElement>('find-id-email').value.trim();
+    if (!name) {
+      setFindIdVerifyStepVisible(false);
+      clearEmailCodeTtlHint('find-id-code-ttl-hint');
+      resultEl.textContent = '이름을 입력해 주세요.';
+      resultEl.classList.add('error');
+      return;
+    }
+    if (!isValidEmail(email)) {
+      setFindIdVerifyStepVisible(false);
+      clearEmailCodeTtlHint('find-id-code-ttl-hint');
+      resultEl.textContent = '올바른 이메일 형식을 입력해 주세요.';
+      resultEl.classList.add('error');
+      return;
+    }
+    const res = await fetch('/api/auth/find-id/send-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email }),
+    });
+    const data = (await res.json().catch(() => ({}))) as {
+      sent?: boolean;
+      message?: string;
+      expiresInMinutes?: number;
+      expiresInSeconds?: number;
+    } & ApiErrorBody;
+    if (!res.ok) {
+      setFindIdVerifyStepVisible(false);
+      clearEmailCodeTtlHint('find-id-code-ttl-hint');
+      resultEl.textContent = formatApiMessage(data);
+      resultEl.classList.add('error');
+      return;
+    }
+    if (data.sent === false) {
+      setFindIdVerifyStepVisible(false);
+      clearEmailCodeTtlHint('find-id-code-ttl-hint');
+      resultEl.textContent =
+        typeof data.message === 'string' ? data.message : '처리되었습니다.';
+      resultEl.classList.add('error');
+      return;
+    }
+    resultEl.textContent = '';
+    resultEl.classList.remove('error');
+    setFindIdVerifyStepVisible(true);
+    startEmailCodeCountdown('find-id-code-ttl-hint', {
+      expiresInMinutes: data.expiresInMinutes,
+      expiresInSeconds: data.expiresInSeconds,
+    });
+  },
+);
 
-getEl<HTMLButtonElement>('btn-verify-find-id-code').addEventListener('click', async () => {
-  const resultEl = getEl<HTMLParagraphElement>('recovery-find-id-result');
-  resultEl.classList.remove('error');
-  const email = getEl<HTMLInputElement>('find-id-email').value.trim();
-  const code = getEl<HTMLInputElement>('find-id-code').value.trim();
-  if (!isValidEmail(email)) {
-    resultEl.textContent = '이메일을 입력해 주세요.';
-    resultEl.classList.add('error');
-    return;
-  }
-  if (!/^\d{6}$/.test(code)) {
-    resultEl.textContent = '인증번호 6자리를 입력해 주세요.';
-    resultEl.classList.add('error');
-    return;
-  }
-  const res = await fetch('/api/auth/find-id/verify', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, code }),
-  });
-  const data = (await res.json().catch(() => ({}))) as { loginId?: string } & ApiErrorBody;
-  if (!res.ok) {
-    resultEl.textContent = formatApiMessage(data);
-    resultEl.classList.add('error');
-    return;
-  }
-  resultEl.textContent = '';
-  resultEl.classList.remove('error');
-  const foundMsg =
-    typeof data.loginId === 'string'
-      ? `회원님의 아이디는 「${data.loginId}」 입니다.`
-      : '아이디를 확인했습니다.';
-  closeRecovery();
-  openRecoveryResultModal('아이디 찾기 결과', foundMsg);
-});
+getEl<HTMLButtonElement>('btn-verify-find-id-code').addEventListener(
+  'click',
+  async () => {
+    const resultEl = getEl<HTMLParagraphElement>('recovery-find-id-result');
+    resultEl.classList.remove('error');
+    const email = getEl<HTMLInputElement>('find-id-email').value.trim();
+    const code = getEl<HTMLInputElement>('find-id-code').value.trim();
+    if (!isValidEmail(email)) {
+      resultEl.textContent = '이메일을 입력해 주세요.';
+      resultEl.classList.add('error');
+      return;
+    }
+    if (!/^\d{6}$/.test(code)) {
+      resultEl.textContent = '인증번호 6자리를 입력해 주세요.';
+      resultEl.classList.add('error');
+      return;
+    }
+    const res = await fetch('/api/auth/find-id/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, code }),
+    });
+    const data = (await res.json().catch(() => ({}))) as {
+      loginId?: string;
+    } & ApiErrorBody;
+    if (!res.ok) {
+      resultEl.textContent = formatApiMessage(data);
+      resultEl.classList.add('error');
+      return;
+    }
+    resultEl.textContent = '';
+    resultEl.classList.remove('error');
+    const foundMsg =
+      typeof data.loginId === 'string'
+        ? `회원님의 아이디는 「${data.loginId}」 입니다.`
+        : '아이디를 확인했습니다.';
+    closeRecovery();
+    openRecoveryResultModal('아이디 찾기 결과', foundMsg);
+  },
+);
 
-getEl<HTMLFormElement>('form-recovery-password').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const resultEl = getEl<HTMLParagraphElement>('recovery-password-result');
-  resultEl.classList.remove('error');
-  const form = e.target as HTMLFormElement;
-  const fd = new FormData(form);
-  const loginId = String(fd.get('loginId') ?? '').trim();
-  const npInput = form.querySelector<HTMLInputElement>('input[name="newPassword"]');
-  const cfInput = form.querySelector<HTMLInputElement>(
-    'input[name="confirmPassword"]',
-  );
-  const newPassword = npInput?.value ?? '';
-  const confirmPassword = cfInput?.value ?? '';
-  if (!isValidLoginId(loginId)) {
-    resultEl.textContent =
-      loginId.length === 0
-        ? '아이디를 입력해 주세요.'
-        : '아이디는 4~20자의 영문, 숫자, 밑줄(_)만 사용할 수 있습니다.';
-    resultEl.classList.add('error');
-    return;
-  }
-  if (newPassword !== confirmPassword) {
-    resultEl.textContent = '위에 입력한 새 비밀번호와 일치하지 않습니다.';
-    resultEl.classList.add('error');
-    return;
-  }
-  const npErr = getPasswordPolicyError(newPassword);
-  if (npErr) {
-    const policyHint = document.getElementById('recovery-password-policy-hint');
-    if (policyHint) updateRegisterPasswordPolicyHint(policyHint, newPassword, 'submit');
-    resultEl.textContent = npErr;
-    resultEl.classList.add('error');
-    return;
-  }
-  const res = await fetch('/api/auth/reset-password', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      loginId,
-      newPassword,
-      confirmNewPassword: confirmPassword,
-    }),
-  });
-  const data = (await res.json().catch(() => ({}))) as { message?: string } & ApiErrorBody;
-  if (!res.ok) {
-    resultEl.textContent = formatApiMessage(data);
-    resultEl.classList.add('error');
-    return;
-  }
-  const successMsg =
-    typeof data.message === 'string' ? data.message : '비밀번호가 변경되었습니다.';
-  form.reset();
-  closeRecovery();
-  openRecoveryResultModal('비밀번호 변경 완료', successMsg);
-});
+getEl<HTMLFormElement>('form-recovery-password').addEventListener(
+  'submit',
+  async (e) => {
+    e.preventDefault();
+    const resultEl = getEl<HTMLParagraphElement>('recovery-password-result');
+    resultEl.classList.remove('error');
+    const form = e.target as HTMLFormElement;
+    const fd = new FormData(form);
+    const loginId = String(fd.get('loginId') ?? '').trim();
+    const npInput = form.querySelector<HTMLInputElement>(
+      'input[name="newPassword"]',
+    );
+    const cfInput = form.querySelector<HTMLInputElement>(
+      'input[name="confirmPassword"]',
+    );
+    const newPassword = npInput?.value ?? '';
+    const confirmPassword = cfInput?.value ?? '';
+    if (!isValidLoginId(loginId)) {
+      resultEl.textContent =
+        loginId.length === 0
+          ? '아이디를 입력해 주세요.'
+          : '아이디는 4~20자의 영문, 숫자, 밑줄(_)만 사용할 수 있습니다.';
+      resultEl.classList.add('error');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      resultEl.textContent = '위에 입력한 새 비밀번호와 일치하지 않습니다.';
+      resultEl.classList.add('error');
+      return;
+    }
+    const npErr = getPasswordPolicyError(newPassword);
+    if (npErr) {
+      const policyHint = document.getElementById(
+        'recovery-password-policy-hint',
+      );
+      if (policyHint)
+        updateRegisterPasswordPolicyHint(policyHint, newPassword, 'submit');
+      resultEl.textContent = npErr;
+      resultEl.classList.add('error');
+      return;
+    }
+    const res = await fetch('/api/auth/reset-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        loginId,
+        newPassword,
+        confirmNewPassword: confirmPassword,
+      }),
+    });
+    const data = (await res.json().catch(() => ({}))) as {
+      message?: string;
+    } & ApiErrorBody;
+    if (!res.ok) {
+      resultEl.textContent = formatApiMessage(data);
+      resultEl.classList.add('error');
+      return;
+    }
+    const successMsg =
+      typeof data.message === 'string'
+        ? data.message
+        : '비밀번호가 변경되었습니다.';
+    form.reset();
+    closeRecovery();
+    openRecoveryResultModal('비밀번호 변경 완료', successMsg);
+  },
+);
 
 const registerFormEl = getEl<HTMLFormElement>('form-register');
 registerFormEl.addEventListener('reset', clearRegisterFieldHints);
@@ -1976,138 +2125,159 @@ wirePasswordPairMatch(
   'recovery-password-match-hint',
 );
 
-getEl<HTMLButtonElement>('btn-register-check-loginid').addEventListener('click', async () => {
-  const input = registerFormEl.querySelector<HTMLInputElement>('input[name="loginId"]');
-  const hint = document.getElementById('register-loginid-hint');
-  if (!input || !hint) return;
-  const loginId = input.value.trim();
-  setAuthMessage('');
-  if (!isValidLoginId(loginId)) {
-    registerLoginIdCheckedNorm = null;
-    updateRegisterLoginIdHint(hint, loginId, 'submit');
-    return;
-  }
-  const res = await fetch(
-    `/api/auth/register/check-login-id?loginId=${encodeURIComponent(loginId)}`,
-  );
-  const data = (await res.json().catch(() => ({}))) as { available?: boolean } & ApiErrorBody;
-  if (!res.ok) {
-    registerLoginIdCheckedNorm = null;
-    hint.textContent = formatApiMessage(data);
+getEl<HTMLButtonElement>('btn-register-check-loginid').addEventListener(
+  'click',
+  async () => {
+    const input = registerFormEl.querySelector<HTMLInputElement>(
+      'input[name="loginId"]',
+    );
+    const hint = document.getElementById('register-loginid-hint');
+    if (!input || !hint) return;
+    const loginId = input.value.trim();
+    setAuthMessage('');
+    if (!isValidLoginId(loginId)) {
+      registerLoginIdCheckedNorm = null;
+      updateRegisterLoginIdHint(hint, loginId, 'submit');
+      return;
+    }
+    const res = await fetch(
+      `/api/auth/register/check-login-id?loginId=${encodeURIComponent(loginId)}`,
+    );
+    const data = (await res.json().catch(() => ({}))) as {
+      available?: boolean;
+    } & ApiErrorBody;
+    if (!res.ok) {
+      registerLoginIdCheckedNorm = null;
+      hint.textContent = formatApiMessage(data);
+      hint.classList.remove('hidden');
+      hint.classList.add('error');
+      hint.classList.remove('ok');
+      return;
+    }
+    if (data.available !== true) {
+      registerLoginIdCheckedNorm = null;
+      hint.textContent = '이미 사용 중인 아이디입니다.';
+      hint.classList.remove('hidden');
+      hint.classList.add('error');
+      hint.classList.remove('ok');
+      return;
+    }
+    registerLoginIdCheckedNorm = loginId.toLowerCase();
+    hint.textContent = '사용 가능한 아이디입니다.';
     hint.classList.remove('hidden');
-    hint.classList.add('error');
-    hint.classList.remove('ok');
-    return;
-  }
-  if (data.available !== true) {
-    registerLoginIdCheckedNorm = null;
-    hint.textContent = '이미 사용 중인 아이디입니다.';
-    hint.classList.remove('hidden');
-    hint.classList.add('error');
-    hint.classList.remove('ok');
-    return;
-  }
-  registerLoginIdCheckedNorm = loginId.toLowerCase();
-  hint.textContent = '사용 가능한 아이디입니다.';
-  hint.classList.remove('hidden');
-  hint.classList.remove('error');
-  hint.classList.add('ok');
-});
+    hint.classList.remove('error');
+    hint.classList.add('ok');
+  },
+);
 
-getEl<HTMLButtonElement>('btn-register-send-email-code').addEventListener('click', async () => {
-  const emailInput = registerFormEl.querySelector<HTMLInputElement>('input[name="email"]');
-  const formatHint = document.getElementById('register-email-format-hint');
-  const verifyHint = document.getElementById('register-email-verify-hint');
-  if (!emailInput || !verifyHint) return;
-  const email = emailInput.value.trim();
-  if (!isValidEmail(email)) {
-    setRegisterEmailVerifyStepVisible(false);
-    if (formatHint) updateRegisterEmailFormatHint(formatHint, email, 'submit');
-    return;
-  }
-  invalidateRegisterEmailVerification();
-  setAuthMessage('');
-  const res = await fetch('/api/auth/register-send-code', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email }),
-  });
-  const data = (await res.json().catch(() => ({}))) as {
-    message?: string;
-    expiresInMinutes?: number;
-    expiresInSeconds?: number;
-  } & ApiErrorBody;
-  if (!res.ok) {
-    verifyHint.textContent = formatApiMessage(data);
-    verifyHint.classList.remove('hidden');
-    verifyHint.classList.add('error');
-    verifyHint.classList.remove('ok');
-    return;
-  }
-  verifyHint.textContent = '';
-  verifyHint.classList.add('hidden');
-  verifyHint.classList.remove('error', 'ok');
-  setRegisterEmailVerifyStepVisible(true);
-  startEmailCodeCountdown('register-email-code-ttl-hint', {
-    expiresInMinutes: data.expiresInMinutes,
-    expiresInSeconds: data.expiresInSeconds,
-  });
-});
+getEl<HTMLButtonElement>('btn-register-send-email-code').addEventListener(
+  'click',
+  async () => {
+    const emailInput = registerFormEl.querySelector<HTMLInputElement>(
+      'input[name="email"]',
+    );
+    const formatHint = document.getElementById('register-email-format-hint');
+    const verifyHint = document.getElementById('register-email-verify-hint');
+    if (!emailInput || !verifyHint) return;
+    const email = emailInput.value.trim();
+    if (!isValidEmail(email)) {
+      setRegisterEmailVerifyStepVisible(false);
+      if (formatHint)
+        updateRegisterEmailFormatHint(formatHint, email, 'submit');
+      return;
+    }
+    invalidateRegisterEmailVerification();
+    setAuthMessage('');
+    const res = await fetch('/api/auth/register-send-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    const data = (await res.json().catch(() => ({}))) as {
+      message?: string;
+      expiresInMinutes?: number;
+      expiresInSeconds?: number;
+    } & ApiErrorBody;
+    if (!res.ok) {
+      verifyHint.textContent = formatApiMessage(data);
+      verifyHint.classList.remove('hidden');
+      verifyHint.classList.add('error');
+      verifyHint.classList.remove('ok');
+      return;
+    }
+    verifyHint.textContent = '';
+    verifyHint.classList.add('hidden');
+    verifyHint.classList.remove('error', 'ok');
+    setRegisterEmailVerifyStepVisible(true);
+    startEmailCodeCountdown('register-email-code-ttl-hint', {
+      expiresInMinutes: data.expiresInMinutes,
+      expiresInSeconds: data.expiresInSeconds,
+    });
+  },
+);
 
-getEl<HTMLButtonElement>('btn-register-verify-email-code').addEventListener('click', async () => {
-  const emailInput = registerFormEl.querySelector<HTMLInputElement>('input[name="email"]');
-  const codeInput = document.getElementById('register-email-code') as HTMLInputElement | null;
-  const formatHint = document.getElementById('register-email-format-hint');
-  const verifyHint = document.getElementById('register-email-verify-hint');
-  const tokenInput = document.getElementById(
-    'register-email-verify-token',
-  ) as HTMLInputElement | null;
-  if (!emailInput || !codeInput || !tokenInput || !verifyHint) return;
-  const email = emailInput.value.trim();
-  if (!isValidEmail(email)) {
-    if (formatHint) updateRegisterEmailFormatHint(formatHint, email, 'submit');
-    return;
-  }
-  const code = codeInput.value.trim();
-  if (!/^\d{6}$/.test(code)) {
-    verifyHint.textContent = '인증번호 6자리를 입력해 주세요.';
-    verifyHint.classList.remove('hidden');
-    verifyHint.classList.add('error');
-    verifyHint.classList.remove('ok');
-    return;
-  }
-  setAuthMessage('');
-  const res = await fetch('/api/auth/register-verify-code', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, code }),
-  });
-  const data = (await res.json().catch(() => ({}))) as {
-    emailVerifyToken?: string;
-  } & ApiErrorBody;
-  if (!res.ok) {
-    verifyHint.textContent = formatApiMessage(data);
-    verifyHint.classList.remove('hidden');
-    verifyHint.classList.add('error');
-    verifyHint.classList.remove('ok');
-    return;
-  }
-  const tok = data.emailVerifyToken;
-  if (typeof tok !== 'string' || !/^[a-f0-9]{64}$/u.test(tok)) {
-    verifyHint.textContent = '인증에 실패했습니다.';
-    verifyHint.classList.remove('hidden');
-    verifyHint.classList.add('error');
-    verifyHint.classList.remove('ok');
-    return;
-  }
-  registerEmailVerifyToken = tok;
-  registerEmailVerifiedFor = email.toLowerCase();
-  tokenInput.value = tok;
-  verifyHint.textContent = '';
-  verifyHint.classList.add('hidden');
-  verifyHint.classList.remove('error', 'ok');
-  clearEmailCodeTtlHint('register-email-code-ttl-hint');
-});
+getEl<HTMLButtonElement>('btn-register-verify-email-code').addEventListener(
+  'click',
+  async () => {
+    const emailInput = registerFormEl.querySelector<HTMLInputElement>(
+      'input[name="email"]',
+    );
+    const codeInput = document.getElementById(
+      'register-email-code',
+    ) as HTMLInputElement | null;
+    const formatHint = document.getElementById('register-email-format-hint');
+    const verifyHint = document.getElementById('register-email-verify-hint');
+    const tokenInput = document.getElementById(
+      'register-email-verify-token',
+    ) as HTMLInputElement | null;
+    if (!emailInput || !codeInput || !tokenInput || !verifyHint) return;
+    const email = emailInput.value.trim();
+    if (!isValidEmail(email)) {
+      if (formatHint)
+        updateRegisterEmailFormatHint(formatHint, email, 'submit');
+      return;
+    }
+    const code = codeInput.value.trim();
+    if (!/^\d{6}$/.test(code)) {
+      verifyHint.textContent = '인증번호 6자리를 입력해 주세요.';
+      verifyHint.classList.remove('hidden');
+      verifyHint.classList.add('error');
+      verifyHint.classList.remove('ok');
+      return;
+    }
+    setAuthMessage('');
+    const res = await fetch('/api/auth/register-verify-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, code }),
+    });
+    const data = (await res.json().catch(() => ({}))) as {
+      emailVerifyToken?: string;
+    } & ApiErrorBody;
+    if (!res.ok) {
+      verifyHint.textContent = formatApiMessage(data);
+      verifyHint.classList.remove('hidden');
+      verifyHint.classList.add('error');
+      verifyHint.classList.remove('ok');
+      return;
+    }
+    const tok = data.emailVerifyToken;
+    if (typeof tok !== 'string' || !/^[a-f0-9]{64}$/u.test(tok)) {
+      verifyHint.textContent = '인증에 실패했습니다.';
+      verifyHint.classList.remove('hidden');
+      verifyHint.classList.add('error');
+      verifyHint.classList.remove('ok');
+      return;
+    }
+    registerEmailVerifyToken = tok;
+    registerEmailVerifiedFor = email.toLowerCase();
+    tokenInput.value = tok;
+    verifyHint.textContent = '';
+    verifyHint.classList.add('hidden');
+    verifyHint.classList.remove('error', 'ok');
+    clearEmailCodeTtlHint('register-email-code-ttl-hint');
+  },
+);
 
 getEl<HTMLFormElement>('form-login').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -2118,7 +2288,10 @@ getEl<HTMLFormElement>('form-login').addEventListener('submit', async (e) => {
     password: String(fd.get('password') ?? ''),
   };
   if (!isValidLoginId(body.loginId)) {
-    setAuthMessage('아이디는 4~20자의 영문, 숫자, 밑줄(_)만 사용할 수 있습니다.', true);
+    setAuthMessage(
+      '아이디는 4~20자의 영문, 숫자, 밑줄(_)만 사용할 수 있습니다.',
+      true,
+    );
     return;
   }
   const res = await fetch('/api/auth/login', {
@@ -2126,13 +2299,20 @@ getEl<HTMLFormElement>('form-login').addEventListener('submit', async (e) => {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
-  const data = (await res.json().catch(() => ({}))) as AuthSuccessBody & ApiErrorBody;
+  const data = (await res.json().catch(() => ({}))) as AuthSuccessBody &
+    ApiErrorBody;
   if (!res.ok) {
     setAuthMessage(formatApiMessage(data), true);
     return;
   }
-  if (typeof data.accessToken !== 'string' || typeof data.refreshToken !== 'string') {
-    setAuthMessage('로그인 응답이 올바르지 않습니다. 서버를 확인해 주세요.', true);
+  if (
+    typeof data.accessToken !== 'string' ||
+    typeof data.refreshToken !== 'string'
+  ) {
+    setAuthMessage(
+      '로그인 응답이 올바르지 않습니다. 서버를 확인해 주세요.',
+      true,
+    );
     return;
   }
   persistAuthTokens(data.accessToken, data.refreshToken);
@@ -2144,7 +2324,9 @@ registerFormEl.addEventListener('submit', async (e) => {
   e.preventDefault();
   const form = e.target as HTMLFormElement;
   const fd = new FormData(form);
-  const pwInput = form.querySelector<HTMLInputElement>('input[name="password"]');
+  const pwInput = form.querySelector<HTMLInputElement>(
+    'input[name="password"]',
+  );
   const cfInput = form.querySelector<HTMLInputElement>(
     'input[name="confirmPassword"]',
   );
@@ -2166,7 +2348,8 @@ registerFormEl.addEventListener('submit', async (e) => {
   const emailVerifyHint = document.getElementById('register-email-verify-hint');
 
   if (!isValidLoginId(body.loginId)) {
-    if (loginIdHint) updateRegisterLoginIdHint(loginIdHint, body.loginId, 'submit');
+    if (loginIdHint)
+      updateRegisterLoginIdHint(loginIdHint, body.loginId, 'submit');
     return;
   }
   const loginIdNorm = body.loginId.trim().toLowerCase();
@@ -2181,11 +2364,17 @@ registerFormEl.addEventListener('submit', async (e) => {
   }
   const pwErr = getPasswordPolicyError(body.password);
   if (pwErr) {
-    if (pwPolicyHint) updateRegisterPasswordPolicyHint(pwPolicyHint, body.password, 'submit');
+    if (pwPolicyHint)
+      updateRegisterPasswordPolicyHint(pwPolicyHint, body.password, 'submit');
     return;
   }
   if (password !== confirmPassword || confirmPassword.trim() === '') {
-    if (matchHint) showRegisterPasswordConfirmSubmitHint(matchHint, password, confirmPassword);
+    if (matchHint)
+      showRegisterPasswordConfirmSubmitHint(
+        matchHint,
+        password,
+        confirmPassword,
+      );
     return;
   }
   if (!body.name) {
@@ -2193,7 +2382,8 @@ registerFormEl.addEventListener('submit', async (e) => {
     return;
   }
   if (!isValidEmail(body.email)) {
-    if (emailHint) updateRegisterEmailFormatHint(emailHint, body.email, 'submit');
+    if (emailHint)
+      updateRegisterEmailFormatHint(emailHint, body.email, 'submit');
     return;
   }
   const emailVerifyToken = String(fd.get('emailVerifyToken') ?? '').trim();
@@ -2221,13 +2411,20 @@ registerFormEl.addEventListener('submit', async (e) => {
       emailVerifyToken,
     }),
   });
-  const data = (await res.json().catch(() => ({}))) as AuthSuccessBody & ApiErrorBody;
+  const data = (await res.json().catch(() => ({}))) as AuthSuccessBody &
+    ApiErrorBody;
   if (!res.ok) {
     setAuthMessage(formatApiMessage(data), true);
     return;
   }
-  if (typeof data.accessToken !== 'string' || typeof data.refreshToken !== 'string') {
-    setAuthMessage('가입 응답이 올바르지 않습니다. 서버를 확인해 주세요.', true);
+  if (
+    typeof data.accessToken !== 'string' ||
+    typeof data.refreshToken !== 'string'
+  ) {
+    setAuthMessage(
+      '가입 응답이 올바르지 않습니다. 서버를 확인해 주세요.',
+      true,
+    );
     return;
   }
   persistAuthTokens(data.accessToken, data.refreshToken);
@@ -2246,7 +2443,9 @@ function setMyPageMessage(text: string, isError = false): void {
 
 getEl<HTMLInputElement>('mypage-email-input').addEventListener('input', () => {
   if (!currentUser) return;
-  const norm = getEl<HTMLInputElement>('mypage-email-input').value.trim().toLowerCase();
+  const norm = getEl<HTMLInputElement>('mypage-email-input')
+    .value.trim()
+    .toLowerCase();
   if (norm === currentUser.email.toLowerCase()) {
     invalidateMyPageEmailVerification();
     return;
@@ -2256,119 +2455,125 @@ getEl<HTMLInputElement>('mypage-email-input').addEventListener('input', () => {
   }
 });
 
-getEl<HTMLButtonElement>('btn-mypage-send-email-code').addEventListener('click', async () => {
-  if (!currentUser) return;
-  const emailInput = getEl<HTMLInputElement>('mypage-email-input');
-  const verifyHint = getEl<HTMLParagraphElement>('mypage-email-verify-hint');
-  const email = emailInput.value.trim();
-  if (!isValidEmail(email)) {
-    setMyPageEmailVerifyStepVisible(false);
-    clearEmailCodeTtlHint('mypage-email-code-ttl-hint');
-    verifyHint.textContent = '올바른 이메일 형식을 입력해 주세요.';
-    verifyHint.classList.remove('hidden');
-    verifyHint.classList.add('error');
-    verifyHint.classList.remove('ok');
-    return;
-  }
-  if (email.toLowerCase() === currentUser.email.toLowerCase()) {
-    clearEmailCodeTtlHint('mypage-email-code-ttl-hint');
-    verifyHint.textContent = '현재와 동일한 이메일입니다.';
-    verifyHint.classList.remove('hidden');
-    verifyHint.classList.add('error');
-    verifyHint.classList.remove('ok');
-    return;
-  }
-  invalidateMyPageEmailVerification();
-  setMyPageMessage('');
-  const res = await fetch('/api/auth/me-email-send-code', {
-    method: 'POST',
-    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email }),
-  });
-  if (tryHandleUnauthorized(res)) return;
-  const data = (await res.json().catch(() => ({}))) as {
-    message?: string;
-    expiresInMinutes?: number;
-    expiresInSeconds?: number;
-  } & ApiErrorBody;
-  if (!res.ok) {
-    verifyHint.textContent = formatApiMessage(data);
-    verifyHint.classList.remove('hidden');
-    verifyHint.classList.add('error');
-    verifyHint.classList.remove('ok');
-    return;
-  }
-  verifyHint.textContent = '';
-  verifyHint.classList.add('hidden');
-  verifyHint.classList.remove('error', 'ok');
-  setMyPageEmailVerifyStepVisible(true);
-  startEmailCodeCountdown('mypage-email-code-ttl-hint', {
-    expiresInMinutes: data.expiresInMinutes,
-    expiresInSeconds: data.expiresInSeconds,
-  });
-});
+getEl<HTMLButtonElement>('btn-mypage-send-email-code').addEventListener(
+  'click',
+  async () => {
+    if (!currentUser) return;
+    const emailInput = getEl<HTMLInputElement>('mypage-email-input');
+    const verifyHint = getEl<HTMLParagraphElement>('mypage-email-verify-hint');
+    const email = emailInput.value.trim();
+    if (!isValidEmail(email)) {
+      setMyPageEmailVerifyStepVisible(false);
+      clearEmailCodeTtlHint('mypage-email-code-ttl-hint');
+      verifyHint.textContent = '올바른 이메일 형식을 입력해 주세요.';
+      verifyHint.classList.remove('hidden');
+      verifyHint.classList.add('error');
+      verifyHint.classList.remove('ok');
+      return;
+    }
+    if (email.toLowerCase() === currentUser.email.toLowerCase()) {
+      clearEmailCodeTtlHint('mypage-email-code-ttl-hint');
+      verifyHint.textContent = '현재와 동일한 이메일입니다.';
+      verifyHint.classList.remove('hidden');
+      verifyHint.classList.add('error');
+      verifyHint.classList.remove('ok');
+      return;
+    }
+    invalidateMyPageEmailVerification();
+    setMyPageMessage('');
+    const res = await fetch('/api/auth/me-email-send-code', {
+      method: 'POST',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    if (tryHandleUnauthorized(res)) return;
+    const data = (await res.json().catch(() => ({}))) as {
+      message?: string;
+      expiresInMinutes?: number;
+      expiresInSeconds?: number;
+    } & ApiErrorBody;
+    if (!res.ok) {
+      verifyHint.textContent = formatApiMessage(data);
+      verifyHint.classList.remove('hidden');
+      verifyHint.classList.add('error');
+      verifyHint.classList.remove('ok');
+      return;
+    }
+    verifyHint.textContent = '';
+    verifyHint.classList.add('hidden');
+    verifyHint.classList.remove('error', 'ok');
+    setMyPageEmailVerifyStepVisible(true);
+    startEmailCodeCountdown('mypage-email-code-ttl-hint', {
+      expiresInMinutes: data.expiresInMinutes,
+      expiresInSeconds: data.expiresInSeconds,
+    });
+  },
+);
 
-getEl<HTMLButtonElement>('btn-mypage-verify-email-code').addEventListener('click', async () => {
-  if (!currentUser) return;
-  const emailInput = getEl<HTMLInputElement>('mypage-email-input');
-  const codeInput = getEl<HTMLInputElement>('mypage-email-code');
-  const verifyHint = getEl<HTMLParagraphElement>('mypage-email-verify-hint');
-  const email = emailInput.value.trim();
-  if (!isValidEmail(email)) {
-    verifyHint.textContent = '올바른 이메일 형식을 입력해 주세요.';
+getEl<HTMLButtonElement>('btn-mypage-verify-email-code').addEventListener(
+  'click',
+  async () => {
+    if (!currentUser) return;
+    const emailInput = getEl<HTMLInputElement>('mypage-email-input');
+    const codeInput = getEl<HTMLInputElement>('mypage-email-code');
+    const verifyHint = getEl<HTMLParagraphElement>('mypage-email-verify-hint');
+    const email = emailInput.value.trim();
+    if (!isValidEmail(email)) {
+      verifyHint.textContent = '올바른 이메일 형식을 입력해 주세요.';
+      verifyHint.classList.remove('hidden');
+      verifyHint.classList.add('error');
+      verifyHint.classList.remove('ok');
+      return;
+    }
+    const code = codeInput.value.trim();
+    if (!/^\d{6}$/.test(code)) {
+      verifyHint.textContent = '인증번호 6자리를 입력해 주세요.';
+      verifyHint.classList.remove('hidden');
+      verifyHint.classList.add('error');
+      verifyHint.classList.remove('ok');
+      return;
+    }
+    setMyPageMessage('');
+    const res = await fetch('/api/auth/me-email-verify-code', {
+      method: 'POST',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, code }),
+    });
+    if (tryHandleUnauthorized(res)) return;
+    const data = (await res.json().catch(() => ({}))) as {
+      emailVerifyToken?: string;
+    } & ApiErrorBody;
+    if (!res.ok) {
+      verifyHint.textContent = formatApiMessage(data);
+      verifyHint.classList.remove('hidden');
+      verifyHint.classList.add('error');
+      verifyHint.classList.remove('ok');
+      return;
+    }
+    const tok = data.emailVerifyToken;
+    if (typeof tok !== 'string' || !/^[a-f0-9]{64}$/u.test(tok)) {
+      verifyHint.textContent = '인증에 실패했습니다.';
+      verifyHint.classList.remove('hidden');
+      verifyHint.classList.add('error');
+      verifyHint.classList.remove('ok');
+      return;
+    }
+    mypageEmailVerifyToken = tok;
+    mypageEmailVerifiedFor = email.toLowerCase();
+    verifyHint.textContent = '이메일 인증이 완료되었습니다.';
     verifyHint.classList.remove('hidden');
-    verifyHint.classList.add('error');
-    verifyHint.classList.remove('ok');
-    return;
-  }
-  const code = codeInput.value.trim();
-  if (!/^\d{6}$/.test(code)) {
-    verifyHint.textContent = '인증번호 6자리를 입력해 주세요.';
-    verifyHint.classList.remove('hidden');
-    verifyHint.classList.add('error');
-    verifyHint.classList.remove('ok');
-    return;
-  }
-  setMyPageMessage('');
-  const res = await fetch('/api/auth/me-email-verify-code', {
-    method: 'POST',
-    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, code }),
-  });
-  if (tryHandleUnauthorized(res)) return;
-  const data = (await res.json().catch(() => ({}))) as {
-    emailVerifyToken?: string;
-  } & ApiErrorBody;
-  if (!res.ok) {
-    verifyHint.textContent = formatApiMessage(data);
-    verifyHint.classList.remove('hidden');
-    verifyHint.classList.add('error');
-    verifyHint.classList.remove('ok');
-    return;
-  }
-  const tok = data.emailVerifyToken;
-  if (typeof tok !== 'string' || !/^[a-f0-9]{64}$/u.test(tok)) {
-    verifyHint.textContent = '인증에 실패했습니다.';
-    verifyHint.classList.remove('hidden');
-    verifyHint.classList.add('error');
-    verifyHint.classList.remove('ok');
-    return;
-  }
-  mypageEmailVerifyToken = tok;
-  mypageEmailVerifiedFor = email.toLowerCase();
-  verifyHint.textContent = '이메일 인증이 완료되었습니다.';
-  verifyHint.classList.remove('hidden');
-  verifyHint.classList.remove('error');
-  verifyHint.classList.add('ok');
-  clearEmailCodeTtlHint('mypage-email-code-ttl-hint');
-});
+    verifyHint.classList.remove('error');
+    verifyHint.classList.add('ok');
+    clearEmailCodeTtlHint('mypage-email-code-ttl-hint');
+  },
+);
 
 getEl<HTMLFormElement>('form-mypage').addEventListener('submit', async (e) => {
   e.preventDefault();
   if (!currentUser) return;
   const form = e.target as HTMLFormElement;
   const fd = new FormData(form);
-  const name = String(fd.get('name') ?? '').trim();
+  const _name = String(fd.get('name') ?? '').trim();
   const email = String(fd.get('email') ?? '').trim();
   const newPassword = String(fd.get('newPassword') ?? '');
   const confirmNewPassword = String(fd.get('confirmNewPassword') ?? '');
@@ -2380,10 +2585,7 @@ getEl<HTMLFormElement>('form-mypage').addEventListener('submit', async (e) => {
       setMyPageMessage('올바른 이메일 형식을 입력해 주세요.', true);
       return;
     }
-    if (
-      !mypageEmailVerifyToken ||
-      emailNorm !== mypageEmailVerifiedFor
-    ) {
+    if (!mypageEmailVerifyToken || emailNorm !== mypageEmailVerifiedFor) {
       setMyPageMessage('이메일 변경은 인증을 완료해 주세요.', true);
       return;
     }
@@ -2398,7 +2600,10 @@ getEl<HTMLFormElement>('form-mypage').addEventListener('submit', async (e) => {
       return;
     }
     if (newPassword !== confirmNewPassword) {
-      setMyPageMessage('새 비밀번호와 새 비밀번호 확인이 일치하지 않습니다.', true);
+      setMyPageMessage(
+        '새 비밀번호와 새 비밀번호 확인이 일치하지 않습니다.',
+        true,
+      );
       return;
     }
     body.newPassword = newPassword;
@@ -2464,174 +2669,227 @@ getEl<HTMLButtonElement>('btn-new-folder').addEventListener('click', () => {
   openNewFolderModal();
 });
 
-getEl<HTMLButtonElement>('btn-new-folder-modal-close').addEventListener('click', () => {
-  closeNewFolderModal();
-});
-getEl<HTMLButtonElement>('btn-new-folder-cancel').addEventListener('click', () => {
-  closeNewFolderModal();
-});
-getEl<HTMLButtonElement>('new-folder-modal-backdrop').addEventListener('click', () => {
-  closeNewFolderModal();
-});
+getEl<HTMLButtonElement>('btn-new-folder-modal-close').addEventListener(
+  'click',
+  () => {
+    closeNewFolderModal();
+  },
+);
+getEl<HTMLButtonElement>('btn-new-folder-cancel').addEventListener(
+  'click',
+  () => {
+    closeNewFolderModal();
+  },
+);
+getEl<HTMLButtonElement>('new-folder-modal-backdrop').addEventListener(
+  'click',
+  () => {
+    closeNewFolderModal();
+  },
+);
 
-getEl<HTMLFormElement>('form-new-folder').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const name = getEl<HTMLInputElement>('new-folder-name').value.trim();
-  const errEl = getEl<HTMLParagraphElement>('new-folder-error');
-  if (!name) {
-    errEl.textContent = '폴더 이름을 입력해 주세요.';
-    errEl.classList.remove('hidden');
-    return;
-  }
-  errEl.textContent = '';
-  errEl.classList.add('hidden');
-  let folderParentId = currentParentId;
-  if ((currentSection === 'docs' || currentSection === 'images') && !folderParentId) {
-    folderParentId =
-      currentSection === 'images' ? sectionRootIds.images : sectionRootIds.docs;
-  }
-  if ((currentSection === 'docs' || currentSection === 'images') && !folderParentId) {
-    errEl.textContent = '문서·이미지 영역을 불러오는 중입니다. 잠시 후 다시 시도해 주세요.';
-    errEl.classList.remove('hidden');
-    return;
-  }
-  const body: { name: string; parentId?: string } = {
-    name,
-  };
-  if (folderParentId) body.parentId = folderParentId;
-  const res = await fetch('/api/drive/folders', {
-    method: 'POST',
-    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (tryHandleUnauthorized(res)) return;
-  if (!res.ok) {
-    const err = (await res.json().catch(() => ({}))) as ApiErrorBody;
-    errEl.textContent = formatApiMessage(err);
-    errEl.classList.remove('hidden');
-    return;
-  }
-  closeNewFolderModal();
-  await loadItems();
-});
+getEl<HTMLFormElement>('form-new-folder').addEventListener(
+  'submit',
+  async (e) => {
+    e.preventDefault();
+    const name = getEl<HTMLInputElement>('new-folder-name').value.trim();
+    const errEl = getEl<HTMLParagraphElement>('new-folder-error');
+    if (!name) {
+      errEl.textContent = '폴더 이름을 입력해 주세요.';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    errEl.textContent = '';
+    errEl.classList.add('hidden');
+    let folderParentId = currentParentId;
+    if (
+      (currentSection === 'docs' || currentSection === 'images') &&
+      !folderParentId
+    ) {
+      folderParentId =
+        currentSection === 'images'
+          ? sectionRootIds.images
+          : sectionRootIds.docs;
+    }
+    if (
+      (currentSection === 'docs' || currentSection === 'images') &&
+      !folderParentId
+    ) {
+      errEl.textContent =
+        '문서·이미지 영역을 불러오는 중입니다. 잠시 후 다시 시도해 주세요.';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    const body: { name: string; parentId?: string } = {
+      name,
+    };
+    if (folderParentId) body.parentId = folderParentId;
+    const res = await fetch('/api/drive/folders', {
+      method: 'POST',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (tryHandleUnauthorized(res)) return;
+    if (!res.ok) {
+      const err = (await res.json().catch(() => ({}))) as ApiErrorBody;
+      errEl.textContent = formatApiMessage(err);
+      errEl.classList.remove('hidden');
+      return;
+    }
+    closeNewFolderModal();
+    await loadItems();
+  },
+);
 
-getEl<HTMLButtonElement>('btn-rename-modal-close').addEventListener('click', () => {
-  closeRenameModal();
-});
+getEl<HTMLButtonElement>('btn-rename-modal-close').addEventListener(
+  'click',
+  () => {
+    closeRenameModal();
+  },
+);
 getEl<HTMLButtonElement>('btn-rename-cancel').addEventListener('click', () => {
   closeRenameModal();
 });
-getEl<HTMLButtonElement>('rename-modal-backdrop').addEventListener('click', () => {
-  closeRenameModal();
-});
+getEl<HTMLButtonElement>('rename-modal-backdrop').addEventListener(
+  'click',
+  () => {
+    closeRenameModal();
+  },
+);
 
-getEl<HTMLFormElement>('form-rename-item').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  if (!renameTargetItem) return;
-  let name = getEl<HTMLInputElement>('rename-item-name').value.trim();
-  const errEl = getEl<HTMLParagraphElement>('rename-item-error');
-  if (!name) {
-    errEl.textContent = '이름을 입력해 주세요.';
-    errEl.classList.remove('hidden');
-    return;
-  }
-  if (renameTargetItem.type === 'FILE' && renameFileExtensionSuffix) {
-    name = name.replace(/\.+$/, '') + renameFileExtensionSuffix;
-  }
-  errEl.textContent = '';
-  errEl.classList.add('hidden');
-  const res = await fetch(`/api/drive/items/${renameTargetItem.id}/rename`, {
-    method: 'PATCH',
-    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name }),
-  });
-  if (tryHandleUnauthorized(res)) return;
-  if (!res.ok) {
-    const err = (await res.json().catch(() => ({}))) as ApiErrorBody;
-    errEl.textContent = formatApiMessage(err);
-    errEl.classList.remove('hidden');
-    return;
-  }
-  const renamedId = renameTargetItem.id;
-  if (renamedId === sectionRootIds.docs) {
-    sectionRootLabels = { ...sectionRootLabels, docs: name };
-  } else if (renamedId === sectionRootIds.images) {
-    sectionRootLabels = { ...sectionRootLabels, images: name };
-  }
-  closeRenameModal();
-  updatePathStackName(renamedId, name);
-  await loadItems();
-});
-
-getEl<HTMLInputElement>('input-upload').addEventListener('change', async (e) => {
-  const input = e.target as HTMLInputElement;
-  const file = input.files?.[0];
-  if (!file) return;
-  const isImage = file.type.startsWith('image/');
-  if (currentSection === 'images' && !isImage) {
-    showNoticeModal('이미지 페이지에서는 이미지 파일만 업로드할 수 있습니다.');
-    input.value = '';
-    return;
-  }
-  const uploadSection: 'docs' | 'images' =
-    currentSection === 'images'
-      ? 'images'
-      : currentSection === 'docs'
-        ? 'docs'
-        : currentSection === 'home'
-          ? isImage
-            ? 'images'
-            : 'docs'
-          : 'docs';
-  let uploadParentId = currentParentId;
-  if (!uploadParentId && currentSection !== 'home') {
-    if (uploadSection === 'images' && sectionRootIds.images) {
-      uploadParentId = sectionRootIds.images;
-    } else if (uploadSection === 'docs' && sectionRootIds.docs) {
-      uploadParentId = sectionRootIds.docs;
+getEl<HTMLFormElement>('form-rename-item').addEventListener(
+  'submit',
+  async (e) => {
+    e.preventDefault();
+    if (!renameTargetItem) return;
+    let name = getEl<HTMLInputElement>('rename-item-name').value.trim();
+    const errEl = getEl<HTMLParagraphElement>('rename-item-error');
+    if (!name) {
+      errEl.textContent = '이름을 입력해 주세요.';
+      errEl.classList.remove('hidden');
+      return;
     }
-  }
-  const fd = new FormData();
-  fd.append('file', file);
-  fd.append('section', uploadSection);
-  if (uploadParentId) fd.append('parentId', uploadParentId);
-  const res = await fetch('/api/drive/upload', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: fd,
-  });
-  input.value = '';
-  if (tryHandleUnauthorized(res)) return;
-  if (!res.ok) {
-    const err = (await res.json().catch(() => ({}))) as ApiErrorBody;
-    showNoticeModal(formatApiMessage(err) || '업로드에 실패했습니다.');
-    return;
-  }
-  await loadItems();
-});
+    if (renameTargetItem.type === 'FILE' && renameFileExtensionSuffix) {
+      name = name.replace(/\.+$/, '') + renameFileExtensionSuffix;
+    }
+    errEl.textContent = '';
+    errEl.classList.add('hidden');
+    const res = await fetch(`/api/drive/items/${renameTargetItem.id}/rename`, {
+      method: 'PATCH',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    });
+    if (tryHandleUnauthorized(res)) return;
+    if (!res.ok) {
+      const err = (await res.json().catch(() => ({}))) as ApiErrorBody;
+      errEl.textContent = formatApiMessage(err);
+      errEl.classList.remove('hidden');
+      return;
+    }
+    const renamedId = renameTargetItem.id;
+    if (renamedId === sectionRootIds.docs) {
+      sectionRootLabels = { ...sectionRootLabels, docs: name };
+    } else if (renamedId === sectionRootIds.images) {
+      sectionRootLabels = { ...sectionRootLabels, images: name };
+    }
+    closeRenameModal();
+    updatePathStackName(renamedId, name);
+    await loadItems();
+  },
+);
 
-getEl<HTMLButtonElement>('btn-move-modal-close').addEventListener('click', () => {
-  closeMoveModal();
-});
-getEl<HTMLButtonElement>('btn-move-modal-cancel').addEventListener('click', () => {
-  closeMoveModal();
-});
-getEl<HTMLButtonElement>('move-modal-backdrop').addEventListener('click', () => {
-  closeMoveModal();
-});
-getEl<HTMLButtonElement>('btn-move-modal-confirm').addEventListener('click', () => {
-  void completeMoveToSelectedFolder();
-});
+getEl<HTMLInputElement>('input-upload').addEventListener(
+  'change',
+  async (e) => {
+    const input = e.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    const isImage = file.type.startsWith('image/');
+    if (currentSection === 'images' && !isImage) {
+      showNoticeModal(
+        '이미지 페이지에서는 이미지 파일만 업로드할 수 있습니다.',
+      );
+      input.value = '';
+      return;
+    }
+    const uploadSection: 'docs' | 'images' =
+      currentSection === 'images'
+        ? 'images'
+        : currentSection === 'docs'
+          ? 'docs'
+          : currentSection === 'home'
+            ? isImage
+              ? 'images'
+              : 'docs'
+            : 'docs';
+    let uploadParentId = currentParentId;
+    if (!uploadParentId && currentSection !== 'home') {
+      if (uploadSection === 'images' && sectionRootIds.images) {
+        uploadParentId = sectionRootIds.images;
+      } else if (uploadSection === 'docs' && sectionRootIds.docs) {
+        uploadParentId = sectionRootIds.docs;
+      }
+    }
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('section', uploadSection);
+    if (uploadParentId) fd.append('parentId', uploadParentId);
+    const res = await fetch('/api/drive/upload', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: fd,
+    });
+    input.value = '';
+    if (tryHandleUnauthorized(res)) return;
+    if (!res.ok) {
+      const err = (await res.json().catch(() => ({}))) as ApiErrorBody;
+      showNoticeModal(formatApiMessage(err) || '업로드에 실패했습니다.');
+      return;
+    }
+    await loadItems();
+  },
+);
 
-getEl<HTMLButtonElement>('btn-delete-modal-close').addEventListener('click', () => {
-  closeDeleteModal();
-});
+getEl<HTMLButtonElement>('btn-move-modal-close').addEventListener(
+  'click',
+  () => {
+    closeMoveModal();
+  },
+);
+getEl<HTMLButtonElement>('btn-move-modal-cancel').addEventListener(
+  'click',
+  () => {
+    closeMoveModal();
+  },
+);
+getEl<HTMLButtonElement>('move-modal-backdrop').addEventListener(
+  'click',
+  () => {
+    closeMoveModal();
+  },
+);
+getEl<HTMLButtonElement>('btn-move-modal-confirm').addEventListener(
+  'click',
+  () => {
+    void completeMoveToSelectedFolder();
+  },
+);
+
+getEl<HTMLButtonElement>('btn-delete-modal-close').addEventListener(
+  'click',
+  () => {
+    closeDeleteModal();
+  },
+);
 getEl<HTMLButtonElement>('btn-delete-cancel').addEventListener('click', () => {
   closeDeleteModal();
 });
-getEl<HTMLButtonElement>('delete-modal-backdrop').addEventListener('click', () => {
-  closeDeleteModal();
-});
+getEl<HTMLButtonElement>('delete-modal-backdrop').addEventListener(
+  'click',
+  () => {
+    closeDeleteModal();
+  },
+);
 getEl<HTMLButtonElement>('btn-delete-confirm').addEventListener('click', () => {
   void confirmDeleteItem();
 });
@@ -2640,41 +2898,71 @@ getEl<HTMLButtonElement>('btn-empty-trash').addEventListener('click', () => {
   openEmptyTrashModal();
 });
 
-getEl<HTMLButtonElement>('btn-withdraw-modal-close').addEventListener('click', () => {
-  closeWithdrawModal();
-});
-getEl<HTMLButtonElement>('btn-withdraw-cancel').addEventListener('click', () => {
-  closeWithdrawModal();
-});
-getEl<HTMLButtonElement>('withdraw-modal-backdrop').addEventListener('click', () => {
-  closeWithdrawModal();
-});
-getEl<HTMLButtonElement>('btn-withdraw-confirm').addEventListener('click', () => {
-  void confirmWithdraw();
-});
+getEl<HTMLButtonElement>('btn-withdraw-modal-close').addEventListener(
+  'click',
+  () => {
+    closeWithdrawModal();
+  },
+);
+getEl<HTMLButtonElement>('btn-withdraw-cancel').addEventListener(
+  'click',
+  () => {
+    closeWithdrawModal();
+  },
+);
+getEl<HTMLButtonElement>('withdraw-modal-backdrop').addEventListener(
+  'click',
+  () => {
+    closeWithdrawModal();
+  },
+);
+getEl<HTMLButtonElement>('btn-withdraw-confirm').addEventListener(
+  'click',
+  () => {
+    void confirmWithdraw();
+  },
+);
 
-getEl<HTMLButtonElement>('btn-notice-modal-close').addEventListener('click', () => {
-  closeNoticeModal();
-});
-getEl<HTMLButtonElement>('notice-modal-backdrop').addEventListener('click', () => {
-  closeNoticeModal();
-});
+getEl<HTMLButtonElement>('btn-notice-modal-close').addEventListener(
+  'click',
+  () => {
+    closeNoticeModal();
+  },
+);
+getEl<HTMLButtonElement>('notice-modal-backdrop').addEventListener(
+  'click',
+  () => {
+    closeNoticeModal();
+  },
+);
 getEl<HTMLButtonElement>('btn-notice-confirm').addEventListener('click', () => {
   closeNoticeModal();
 });
 
-getEl<HTMLButtonElement>('btn-session-renew-accept').addEventListener('click', () => {
-  void acceptSessionRenewal();
-});
-getEl<HTMLButtonElement>('btn-session-renew-decline').addEventListener('click', () => {
-  declineSessionRenewal();
-});
-getEl<HTMLButtonElement>('btn-session-renew-close').addEventListener('click', () => {
-  declineSessionRenewal();
-});
-getEl<HTMLButtonElement>('session-renew-modal-backdrop').addEventListener('click', () => {
-  declineSessionRenewal();
-});
+getEl<HTMLButtonElement>('btn-session-renew-accept').addEventListener(
+  'click',
+  () => {
+    void acceptSessionRenewal();
+  },
+);
+getEl<HTMLButtonElement>('btn-session-renew-decline').addEventListener(
+  'click',
+  () => {
+    declineSessionRenewal();
+  },
+);
+getEl<HTMLButtonElement>('btn-session-renew-close').addEventListener(
+  'click',
+  () => {
+    declineSessionRenewal();
+  },
+);
+getEl<HTMLButtonElement>('session-renew-modal-backdrop').addEventListener(
+  'click',
+  () => {
+    declineSessionRenewal();
+  },
+);
 
 void (async function init(): Promise<void> {
   const token = localStorage.getItem(TOKEN_KEY);

@@ -1,14 +1,17 @@
-import { Module } from '@nestjs/common';
+import { join } from 'node:path';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ServeStaticModule } from '@nestjs/serve-static';
-import { join } from 'path';
-import { AuthModule } from './modules/auth/auth.module';
-import { DriveModule } from './modules/drive/drive.module';
+import { AuthModule } from './auth/auth.module';
+import { LoggingMiddleware } from './common/middleware/logging.middleware';
+import { DriveModule } from './drive/drive.module';
 import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ScheduleModule.forRoot(),
     PrismaModule,
     AuthModule,
     DriveModule,
@@ -17,4 +20,8 @@ import { PrismaModule } from './prisma/prisma.module';
     }),
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(LoggingMiddleware).forRoutes('*');
+  }
+}

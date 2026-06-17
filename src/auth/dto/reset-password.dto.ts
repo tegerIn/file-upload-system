@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import { IsString, Matches, MaxLength, MinLength } from 'class-validator';
 import {
   PASSWORD_POLICY_MESSAGE,
@@ -11,6 +12,9 @@ export class ResetPasswordDto {
   @Matches(/^[a-zA-Z0-9_]+$/, {
     message: '아이디 형식이 올바르지 않습니다.',
   })
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim().toLowerCase() : value,
+  )
   loginId: string;
 
   @IsString()
